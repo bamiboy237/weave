@@ -6,6 +6,9 @@ This package provides a fully offline coding assistant with:
 - Persistent memory across sessions
 - Extensible tool system
 - Tool chains for complex workflows
-- Curses-based terminal UI
+- Textual-based terminal UI with theming support
 """
 
+from weave.tui import Weave, main
+
+__all__ = ["Weave", "main"]

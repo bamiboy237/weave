@@ -1,0 +1,24 @@
+[project]
+name = "weave"
+version = "0.1.0"
+description = "An on-device coding agent with local LLM inference"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.89.1",
+    "humanize>=4.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+    "pyperclip>=1.8",
+    "pydantic>=2.0",
+]
+
+[project.scripts]
+weave = "weave.tui:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/weave"]
