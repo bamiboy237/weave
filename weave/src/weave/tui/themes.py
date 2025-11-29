@@ -1,17 +1,17 @@
-"""
-Weave color themes.
+"""Weave color themes.
 
 Provides a collection of built-in themes and support for custom user themes.
 """
 
 from pathlib import Path
 
+import yaml
 from pydantic import BaseModel, Field
 from textual.design import ColorSystem
-import yaml
 
 
 class Theme(BaseModel):
+    """A color theme configuration for the TUI."""
     name: str = Field(exclude=True)
     primary: str
     secondary: str | None = None
@@ -54,10 +54,10 @@ def load_user_themes() -> dict[str, Theme]:
     """
     themes: dict[str, Theme] = {}
     themes_dir = get_themes_directory()
-    
+
     if not themes_dir.exists():
         return themes
-        
+
     for path in themes_dir.iterdir():
         path_suffix = path.suffix
         if path_suffix == ".yaml" or path_suffix == ".yml":
@@ -65,10 +65,10 @@ def load_user_themes() -> dict[str, Theme]:
                 theme_content = yaml.load(theme_file, Loader=yaml.FullLoader) or {}
                 try:
                     themes[theme_content["name"]] = Theme(**theme_content)
-                except KeyError:
+                except KeyError as exc:
                     raise ValueError(
                         f"Invalid theme file {path}. A `name` is required."
-                    )
+                    ) from exc
     return themes
 
 
@@ -77,10 +77,10 @@ BUILTIN_THEMES: dict[str, Theme] = {
         name="cursor",
         primary="#FFFFFF",  # Stark White
         secondary="#A3A3A3",  # Neutral Gray
-        warning="#F59E0B",  # Amber 
-        error="#EF4444",  # Red 
-        success="#10B981",  # Emerald (
-        accent="#FFFFFF",  # White 
+        warning="#F59E0B",  # Amber
+        error="#EF4444",  # Red
+        success="#10B981",  # Emerald
+        accent="#FFFFFF",  # White
         dark=True,
         background="#000000",  # Pure Black
         surface="#111111",  # Deepest Gray
@@ -201,4 +201,3 @@ BUILTIN_THEMES: dict[str, Theme] = {
         panel="#2A2A2A",  # Dark Gray
     ),
 }
-

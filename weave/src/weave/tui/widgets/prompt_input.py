@@ -1,6 +1,4 @@
-"""
-Prompt input widget with markdown support.
-"""
+"""Prompt input widget with markdown support."""
 
 from dataclasses import dataclass
 
@@ -12,21 +10,25 @@ from textual.message import Message
 
 
 class PromptInput(TextArea):
+    """Text input widget for entering prompts with markdown support."""
+
     @dataclass
     class PromptSubmitted(Message):
+        """Message posted when a prompt is submitted."""
+
         text: str
         prompt_input: "PromptInput"
 
     @dataclass
     class CursorEscapingTop(Message):
-        pass
+        """Message posted when cursor moves above the input."""
 
     @dataclass
     class CursorEscapingBottom(Message):
-        pass
+        """Message posted when cursor moves below the input."""
 
     BINDINGS = [
-        Binding("ctrl+j,alt+enter", "submit_prompt", "Send message", key_display="^j")
+        Binding("ctrl+e,alt+enter", "submit_prompt", "Send message", key_display="^j")
     ]
 
     submit_ready = reactive(True)
@@ -34,7 +36,7 @@ class PromptInput(TextArea):
     def __init__(
         self,
         name: str | None = None,
-        id: str | None = None,
+        id: str | None = None,  # noqa: A002  # pylint: disable=redefined-builtin
         classes: str | None = None,
         disabled: bool = False,
     ) -> None:
@@ -43,6 +45,7 @@ class PromptInput(TextArea):
         )
 
     def on_key(self, event: events.Key) -> None:
+        """Handle key events for cursor navigation."""
         if self.cursor_location == (0, 0) and event.key == "up":
             event.prevent_default()
             self.post_message(self.CursorEscapingTop())
@@ -53,13 +56,16 @@ class PromptInput(TextArea):
             event.stop()
 
     def watch_submit_ready(self, submit_ready: bool) -> None:
+        """Update styling when submit ready state changes."""
         self.set_class(not submit_ready, "-submit-blocked")
 
-    def on_mount(self):
+    def on_mount(self) -> None:
+        """Set up the input on mount."""
         self.border_title = "Enter your [u]m[/]essage..."
 
     @on(TextArea.Changed)
     async def prompt_changed(self, event: TextArea.Changed) -> None:
+        """Handle text changes to update subtitle and styling."""
         text_area = event.text_area
         if text_area.text.strip() != "":
             text_area.border_subtitle = "[^j] Send"
@@ -73,6 +79,7 @@ class PromptInput(TextArea):
             self.parent.refresh()
 
     def action_submit_prompt(self) -> None:
+        """Submit the current prompt text."""
         if self.text.strip() == "":
             self.notify("Cannot send empty message!")
             return
@@ -84,4 +91,3 @@ class PromptInput(TextArea):
         else:
             self.app.bell()
             self.notify("Please wait for response to complete.")
-

@@ -1,6 +1,4 @@
-"""
-Weave home screen - main entry point for the TUI.
-"""
+"""Weave home screen - main entry point for the TUI."""
 
 from typing import TYPE_CHECKING, cast
 
@@ -23,10 +21,14 @@ if TYPE_CHECKING:
 
 
 class HomePromptInput(PromptInput):
+    """Prompt input variant for the home screen with quit binding."""
+
     BINDINGS = [Binding("escape", "app.quit", "Quit", key_display="esc")]
 
 
 class HomeScreen(Screen[None]):
+    """Main home screen showing chat list and prompt input."""
+
     CSS = """\
 ChatList {
     height: 1fr;
@@ -37,11 +39,11 @@ ChatList {
 
     BINDINGS = [
         Binding(
-            "ctrl+j,alt+enter",
+            "ctrl+e,alt+enter",
             "send_message",
             "Send message",
             priority=True,
-            key_display="^j",
+            key_display="^e",
             tooltip="Send a message to the local LLM.",
         ),
     ]
@@ -49,16 +51,18 @@ ChatList {
     def __init__(
         self,
         name: str | None = None,
-        id: str | None = None,
+        id: str | None = None,  # noqa: A002  # pylint: disable=redefined-builtin
         classes: str | None = None,
     ) -> None:
         super().__init__(name, id, classes)
         self.weave = cast("Weave", self.app)
-
-    def on_mount(self) -> None:
         self.chats_manager = ChatsManager()
 
+    def on_mount(self) -> None:
+        """Handle screen mount event."""
+
     def compose(self) -> ComposeResult:
+        """Compose the home screen layout."""
         yield AppHeader()
         yield HomePromptInput(id="home-prompt")
         yield ChatList()
@@ -67,35 +71,42 @@ ChatList {
 
     @on(ScreenResume)
     async def reload_screen(self) -> None:
+        """Reload chat list when screen resumes."""
         chat_list = self.query_one(ChatList)
         await chat_list.reload_and_refresh()
         self.show_welcome_if_required()
 
     @on(ChatList.ChatOpened)
-    async def open_chat_screen(self, event: ChatList.ChatOpened):
+    async def open_chat_screen(self, event: ChatList.ChatOpened) -> None:
+        """Open the selected chat in a new screen."""
         chat_id = event.chat.id
         assert chat_id is not None
         chat = await self.chats_manager.get_chat(chat_id)
         await self.app.push_screen(ChatScreen(chat))
 
     @on(ChatList.CursorEscapingTop)
-    def cursor_escaping_top(self):
+    def cursor_escaping_top(self) -> None:
+        """Move focus to prompt when cursor escapes chat list."""
         self.query_one(HomePromptInput).focus()
 
     @on(PromptInput.PromptSubmitted)
     async def create_new_chat(self, event: PromptInput.PromptSubmitted) -> None:
+        """Create a new chat from the submitted prompt."""
         text = event.text
         await self.weave.launch_chat(prompt=text)
 
     @on(PromptInput.CursorEscapingBottom)
     async def move_focus_below(self) -> None:
+        """Move focus to chat list when cursor escapes prompt."""
         self.focus_next(ChatList)
 
     def action_send_message(self) -> None:
+        """Trigger prompt submission."""
         prompt_input = self.query_one(PromptInput)
         prompt_input.action_submit_prompt()
 
     def show_welcome_if_required(self) -> None:
+        """Show or hide welcome message based on chat list state."""
         chat_list = self.query_one(ChatList)
         if chat_list.option_count == 0:
             welcome = self.query_one(Welcome)
@@ -103,4 +114,3 @@ ChatList {
         else:
             welcome = self.query_one(Welcome)
             welcome.display = "none"
-
