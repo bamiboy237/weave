@@ -28,7 +28,7 @@ class PromptInput(TextArea):
         """Message posted when cursor moves below the input."""
 
     BINDINGS = [
-        Binding("ctrl+e,alt+enter", "submit_prompt", "Send message", key_display="^j")
+        Binding("ctrl+e,alt+enter", "submit_prompt", "Send message", key_display="^e")
     ]
 
     submit_ready = reactive(True)
