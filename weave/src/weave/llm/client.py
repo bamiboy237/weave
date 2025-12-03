@@ -14,6 +14,8 @@ from llama_cpp import Llama
 import sys
 import os
 from typing import Generator
+from weave.core.logging import logger
+
 
 # supppress stderr from llama.cpp
 sys.stderr = open(os.devnull, 'w')
@@ -26,7 +28,11 @@ llm = Llama(
     verbose=False,
     chat_format="qwen"
 )
-def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9) -> Generator[str, None, None]:
+logger.info("LLM model loaded successfully")
+logger.debug(f"Model path: {llm.model_path}")
+
+
+def stream_chat_completion(messages, max_tokens=2048, temperature=0.3, top_p=0.9) -> Generator[str, None, None]:
     """
     Stream a chat completion response token by token.
     
@@ -42,7 +48,12 @@ def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9
     Raises:
         ValueError: If messages are not properly formatted or temp/top_p are out of range
     """
+    logger.info("stream_chat_completion called")
+    logger.debug(f"Messages: {messages}")
+    logger.debug(f"max_tokens={max_tokens}, temp={temperature}, top_p={top_p}")
+    
     try:
+        logger.info("Creating chat completion stream...")
         response_stream = llm.create_chat_completion(
             messages=messages,
             max_tokens=max_tokens,
@@ -50,18 +61,41 @@ def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9
             top_p=top_p,
             stream=True
         )
+        logger.info("Chat completion stream created")
         
+        chunk_count = 0
         for chunk in response_stream:
+            chunk_count += 1
+            logger.debug(f"Received chunk #{chunk_count}: {chunk}")
+            
             try:
-                choices = getattr(chunk, "choices", None) or []
+                # Handle both dict and object types
+                if isinstance(chunk, dict):
+                    choices = chunk.get("choices", [])
+                else:
+                    choices = getattr(chunk, "choices", [])
+                
+                logger.debug(f"Chunk has {len(choices)} choices")
+                
                 if choices:
-                    delta = getattr(choices[0], "delta", None)
-                    if delta:
-                        content = getattr(delta, "content", None)
-                        if content:
-                            yield content
-            except (KeyError, IndexError, TypeError, AttributeError):
-                continue  # Skip malformed chunks
+                    # Handle both dict and object types for delta
+                    if isinstance(choices[0], dict):
+                        delta = choices[0].get("delta", {})
+                        content = delta.get("content", None) if isinstance(delta, dict) else getattr(delta, "content", None)
+                    else:
+                        delta = getattr(choices[0], "delta", None)
+                        content = getattr(delta, "content", None) if delta else None
+                    
+                    logger.debug(f"Delta: {delta}")
+                    
+                    if content:
+                        logger.debug(f"Yielding content: {repr(content)}")
+                        yield content
+            except (KeyError, IndexError, TypeError, AttributeError) as e:
+                logger.warning(f"Error processing chunk: {e}")
+                continue
+        
+        logger.info(f"Stream complete. Yielded {chunk_count} chunks")
     except Exception as e:
         raise ValueError(f"Error during chat completion: {e}")
 

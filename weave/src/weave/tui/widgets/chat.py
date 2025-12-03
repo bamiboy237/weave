@@ -170,15 +170,28 @@ class Chat(Widget):
         import asyncio
         from weave.llm.chat import format_messages_for_llm
         from weave.llm.client import stream_chat_completion
+        from weave.core.logging import logger
         
-        formatted_messages = format_messages_for_llm(self.chat_data.messages)
-        llm_response = stream_chat_completion(formatted_messages)
+        logger.info("Starting agent response stream")
+        logger.debug(f"Chat data has {len(self.chat_data.messages)} messages")
         
         try:
+            logger.info("Formatting messages for LLM")
+            formatted_messages = format_messages_for_llm(self.chat_data.messages)
+            logger.debug(f"Formatted messages: {formatted_messages}")
+            
+            logger.info("Calling stream_chat_completion")
+            llm_response = stream_chat_completion(formatted_messages)
+            logger.info("LLM response generator created, starting iteration")
+            
+            chunk_count = 0
             for chunk in llm_response:
+                chunk_count += 1
+                logger.debug(f"Received chunk #{chunk_count}: {repr(chunk)}")
+                
                 response_chatbox.border_title = "Agent is responding..."
                 self.app.call_from_thread(
-                    response_chatbox.append_chunk, chunk + " "
+                    response_chatbox.append_chunk, chunk 
                 )
                 
                 scroll_y = self.chat_container.scroll_y
@@ -188,9 +201,12 @@ class Chat(Widget):
                         self.chat_container.scroll_end, animate=False
                     )
                 
-                await asyncio.sleep(0.05)  # Simulate streaming delay
+                await asyncio.sleep(0.00005)  # Simulate streaming delay
+            
+            logger.info(f"Streaming complete. Received {chunk_count} chunks total")
                 
         except Exception as e:
+            logger.error(f"Error during streaming: {e}", exc_info=True)
             self.notify(
                 f"Error: {e}",
                 title="Error",
