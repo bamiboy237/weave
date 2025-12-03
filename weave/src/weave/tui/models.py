@@ -14,7 +14,7 @@ from typing import Literal, TypedDict
 class MessageContent(TypedDict, total=False):
     """Message content structure compatible with LLM message formats."""
     content: str
-    role: Literal["system", "user", "assistant"]
+    role: Literal["system", "user", "assistant", "tool", "function"]
 
 
 @dataclass

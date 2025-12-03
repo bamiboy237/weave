@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import bisect
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from rich.console import RenderableType
 from rich.markdown import Markdown
@@ -166,7 +166,6 @@ class SelectionTextArea(TextArea):
 
     def action_next_code_block(self) -> None:
         try:
-            from textual.document._syntax_aware_document import SyntaxAwareDocumentError
             query = self.document.prepare_query(
                 "(fenced_code_block (code_fence_content) @code_block)"
             )
@@ -179,17 +178,17 @@ class SelectionTextArea(TextArea):
             if query:
                 code_block_nodes = self.document.query_syntax_tree(query)
                 locations: list[tuple[tuple[int, int], tuple[int, int]]] = [
-                    (node.start_point, node.end_point)
+                    (getattr(node, "start_point"), getattr(node, "end_point"))
                     for (node, _name) in code_block_nodes
                 ]
                 if not locations:
                     return
                 self.visual_mode = True
-                end_locations = [end for _start, end in locations]
+                end_locations: list[tuple[int, int]] = [end for _start, end in locations]
                 cursor_row, _cursor_column = self.cursor_location
-                search_start_location = cursor_row + 1, 0
+                search_start_location: tuple[int, int] = (cursor_row + 1, 0)
                 insertion_index = bisect.bisect_left(
-                    end_locations, search_start_location
+                    cast(Any, end_locations), search_start_location
                 )
                 insertion_index %= len(end_locations)
                 start, end = locations[insertion_index]
@@ -335,12 +334,12 @@ class Chatbox(Widget, can_focus=True):
     def leave_selection_mode(self) -> None:
         self.selection_mode = False
 
-    def watch_has_focus(self, value: bool) -> None:
+    def watch_has_focus(self, value: bool) -> None:  # type: ignore[override]
         if value:
             try:
                 child = self.query_one(SelectionTextArea)
             except NoMatches:
-                return None
+                return
             else:
                 child.focus()
 

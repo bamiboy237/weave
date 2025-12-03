@@ -10,12 +10,19 @@ Handles conversation structure for the LLM:
 from __future__ import annotations
 
 from weave.tui.models import ChatMessage
+from weave.tui.models import MessageContent
+from typing import Sequence, cast
 
-def format_messages_for_llm(messages: list[ChatMessage]) -> list[dict[str, str]]:
+def format_messages_for_llm(messages: Sequence[ChatMessage | MessageContent]) -> list[MessageContent]:
     """Format messages for LLM consumption."""
-    formatted = []
+    formatted: list[MessageContent] = []
     for msg in messages:
-        role = msg.role
-        content = msg.content
-        formatted.append({"role": role, "content": content})
+        if isinstance(msg, ChatMessage):
+            role = msg.role
+            content = msg.content
+        else:
+            msg = cast(MessageContent, msg)
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+        formatted.append({"role": role, "content": content})  # type: ignore[typeddict-item]
     return formatted
