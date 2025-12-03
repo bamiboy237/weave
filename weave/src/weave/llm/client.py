@@ -13,6 +13,7 @@ Provides a clean interface for the rest of the application.
 from llama_cpp import Llama
 import sys
 import os
+from typing import Generator
 
 # supppress stderr from llama.cpp
 sys.stderr = open(os.devnull, 'w')
@@ -25,7 +26,7 @@ llm = Llama(
     verbose=False,
     chat_format="qwen"
 )
-def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9):
+def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9) -> Generator[str, None, None]:
     """
     Stream a chat completion response token by token.
     
@@ -37,19 +38,32 @@ def stream_chat_completion(messages, max_tokens=2048, temperature=0.5, top_p=0.9
         
     Yields:
         str: Individual tokens as they are generated
+
+    Raises:
+        ValueError: If messages are not properly formatted or temp/top_p are out of range
     """
-    response_stream = llm.create_chat_completion(
-        messages=messages,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-        stream=True
-    )
-    
-    for chunk in response_stream:
-        delta = chunk["choices"][0]["delta"]
-        if "content" in delta:
-            yield delta["content"]
+    try:
+        response_stream = llm.create_chat_completion(
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            stream=True
+        )
+        
+        for chunk in response_stream:
+            try:
+                choices = getattr(chunk, "choices", None) or []
+                if choices:
+                    delta = getattr(choices[0], "delta", None)
+                    if delta:
+                        content = getattr(delta, "content", None)
+                        if content:
+                            yield content
+            except (KeyError, IndexError, TypeError, AttributeError):
+                continue  # Skip malformed chunks
+    except Exception as e:
+        raise ValueError(f"Error during chat completion: {e}")
 
 
 if __name__ == "__main__":

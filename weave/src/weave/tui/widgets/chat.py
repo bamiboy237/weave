@@ -152,7 +152,6 @@ class Chat(Widget):
         """
         model = self.chat_data.model
 
-        # Placeholder response - will be replaced with actual LLM inference
         ai_message: MessageContent = {
             "content": "",
             "role": "assistant",
@@ -168,18 +167,15 @@ class Chat(Widget):
         self.post_message(self.AgentResponseStarted())
         self.app.call_from_thread(self.chat_container.mount, response_chatbox)
 
-        # TODO: Replace with actual LLM streaming
-        # For now, just return a placeholder message
         import asyncio
+        from weave.llm.chat import format_messages_for_llm
+        from weave.llm.client import stream_chat_completion
         
-        placeholder_response = (
-            "Hello! I'm Weave, your local coding assistant. "
-            "I'm currently a placeholder - LLM integration is coming in Phase 1. "
-            "Once integrated, I'll be powered by your local llama.cpp model!"
-        )
+        formatted_messages = format_messages_for_llm(self.chat_data.messages)
+        llm_response = stream_chat_completion(formatted_messages)
         
         try:
-            for chunk in placeholder_response.split(" "):
+            for chunk in llm_response:
                 response_chatbox.border_title = "Agent is responding..."
                 self.app.call_from_thread(
                     response_chatbox.append_chunk, chunk + " "
