@@ -10,3 +10,4 @@ wheels/
 .venv
 implementation.md
 elia/
+models/*.gguf
