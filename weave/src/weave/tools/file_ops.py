@@ -78,7 +78,7 @@ def write_file(file: Path, file_path: str, contents: str) -> str:
         file.parent.mkdir(parents=True, exist_ok=True) # create parent dirs if non_existent
         with file.open("w", encoding="utf-8") as f:
             f.write(contents)
-        return f"Succesfull wrotre to '{file_path}'"
+        return f"Succesfull wrote to '{file_path}'"
     except OSError as e:
         return f"Error writing to '{file_path}': {e}"
     
@@ -169,7 +169,7 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
             return f"Error: Directory '{dir_path}' is not a directory"
         
         result = [f"Contents of '{dir_path}': "]
-        def list_recursive(path: Path, depth: int, prefix: str = ""):
+        def list_recursive(path: Path, depth: int):
             if depth > max_depth:
                 return
             
@@ -179,7 +179,7 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
                 for item in items:
                     if item.is_dir():
                         result.append(f"{indent}📁 {item.name}/")
-                        list_recursive(item, depth + 1, prefix + "  ")
+                        list_recursive(item, depth + 1)  
                     else:
                         size = item.stat().st_size
                         size_str = format_file_size(size)
@@ -192,7 +192,79 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
     
     except OSError as e:
         return f"Error listing directory '{dir_path}': {e}"
+
+def search_files(directory: Path, dir_path: str, pattern: str, 
+                 file_pattern: str = "*", max_results: int = 50) -> str:
+    """
+    Searches for a text pattern across files in a directory.
     
+    Args:
+        directory: Path object to search in
+        dir_path: Original directory path string (for messages)
+        pattern: Text pattern to search for (supports regex)
+        file_pattern: Glob pattern for files to search (e.g., "*.py")
+        max_results: Maximum number of results to return
+    """
+    try:
+        if not directory.exists() or not directory.is_dir():
+            return f"Error: '{dir_path}' is not a valid directory"
+
+        results = []
+        regex = re.compile(pattern, re.IGNORECASE)
+
+        for file_path in directory.rglob(file_pattern):
+            if not file_path.is_file():
+                continue
+            try:
+                with file_path.open("r", encoding="utf-8", errors="ignore") as f:
+                    for line_num, line in enumerate(f, 1):
+                        if regex.search(line):
+                            relative_path = file_path.relative_to(directory)
+                            results.append(f"{relative_path}:{line_num}: {line.strip()}")
+
+                            if len(results) >= max_results:
+                                results.append(f"\n.... Showing first {max_results} results")
+                                return "\n".join(results)
+            except Exception:
+                continue
+        if not results:
+            return f"No matches found for pattern '{pattern}' in {dir_path}"
+        
+        return "\n".join(results)
+    
+    except OSError as e:
+        return f"Error searching in '{dir_path}': {e}"
+
+def get_file_info(file: Path, file_path: str) -> Optional[str]:
+    """
+    Gets information about a file (size, type, line count).
+    
+    Args:
+        file: Path object to get info about
+        file_path: Original file path string (for messages)
+    """
+    try:
+        if not file.exists():
+            return f"Error: File '{file_path}' does not exist"
+        
+        stat = file.stat()
+        size = format_file_size(stat.st_size)
+
+        info = [f"File: {file_path}"]
+        info.append(f"Size: {size}")
+        info.append(f"Type: {file.suffix or 'no extension'}")
+
+        if file.suffix == "txt":
+            try:
+                with file.open("r", encoding="utf-8") as f:
+                    line_count = sum(1 for _ in f)
+                info.append(f"Lines {line_count}")
+            except Exception:
+                info.append("Lines: [binary file]")
+
+            return "\n".join(info)
+    except OSError as e:
+        return f"Error getting info for '{file_path}': {e}"
 
 def format_file_size(size_bytes: int) -> str:
     """Formats file size in human-readable format."""
