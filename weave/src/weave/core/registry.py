@@ -9,7 +9,7 @@ The registry:
 - Handles tool discovery at startup
 """
 from weave.tools.schema import ToolSchema
-from typing import Callable
+from typing import Callable, Optional, Any
 
 class ToolRegistry:
     def __init__(self):
@@ -36,6 +36,6 @@ class ToolRegistry:
         return list(self.schemas.values())
         
 
-    def execute(self, name: str, args: dict) -> any | None:
+    def execute(self, name: str, args: dict) -> Optional[Any]:
         """Execute a registered tool."""
         pass

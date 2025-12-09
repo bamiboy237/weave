@@ -11,7 +11,6 @@ Implements safe file system operations:
 All operations are sandboxed to prevent path traversal attacks.
 Paths are resolved relative to a configured working directory.
 """
-
 from pathlib import Path
 from typing import Optional
 import re
@@ -21,21 +20,20 @@ from dataclasses import dataclass
 @dataclass
 class FileEdit:
     """Represents a single file edit operation"""
-    type: str # 'insert', 'replace', 'delete', 'append'
+    type: str  # 'insert', 'replace', 'delete', 'append'
     line_start: int
     line_end: Optional[int] = None
     content: str = ""
 
+
 def validate_file_path(working_dir: str, file_path: str) -> tuple[bool, Optional[Path], Optional[str]]:
     """
     Validates that a file path is within the safe working directory.
-
     Returns:
         Tuple of (is_valid, resolved_path, error_message)
     """
     safe_zone: Path = Path(working_dir).resolve()
     file: Path = (safe_zone / file_path).resolve()
-
     if not file.is_relative_to(safe_zone):
         return (
             False,
@@ -44,13 +42,12 @@ def validate_file_path(working_dir: str, file_path: str) -> tuple[bool, Optional
         )
     return (True, file, None)
 
-def read_file(file: Path, file_path: str, max_chars: Optional[int] = None) -> str:
+
+def read_file(file: Path, max_chars: Optional[int] = None) -> str:
     """
     Safely reads a file with error handling.
-
     Args:
         file: Path object to read
-        file_path: Original file path string (for error messages)
         max_chars: Optional character limit for truncation
     """
     try:
@@ -58,74 +55,73 @@ def read_file(file: Path, file_path: str, max_chars: Optional[int] = None) -> st
             contents: str = f.read()
             if max_chars and len(contents) > max_chars:
                 contents = contents[:max_chars]
-            contents += (
-                f"\n\n... File '{file_path}' truncated at {max_chars} characters"
-            )
+                contents += f"\n\n... File '{file}' truncated at {max_chars} characters"
         return contents
     except OSError as e:
-        return f"Error accessing '{file_path}': {e}"
+        return f"Error accessing '{file}': {e}"
     
-def write_file(file: Path, file_path: str, contents: str) -> str: 
+
+def write_file(file: Path, contents: str) -> str: 
     """
     Safely writes content to a file with error handling.
-
     Args:
         file: Path object to write to
-        file_path: Original file path string (for messages)
         contents: Content to write
     """
     try: 
-        file.parent.mkdir(parents=True, exist_ok=True) # create parent dirs if non_existent
+        file.parent.mkdir(parents=True, exist_ok=True)  # create parent dirs if non-existent
         with file.open("w", encoding="utf-8") as f:
             f.write(contents)
-        return f"Succesfull wrote to '{file_path}'"
+        return f"Successfully wrote to '{file}'"
     except OSError as e:
-        return f"Error writing to '{file_path}': {e}"
-    
-def edit_file(file: Path, file_path: str, edits: list[FileEdit]) -> str:
+        return f"Error writing to '{file}': {e}"
+
+
+def edit_file(file: Path, edits: list[FileEdit]) -> str:
     """
     Performs targeted edits on a file without rewriting the entire content.
     
     Args:
         file: Path object to edit
-        file_path: Original file path string (for messages)
         edits: List of FileEdit operations to apply
         
     Returns:
         Success/error message
     """
-    try: 
+    try:
         with file.open("r", encoding="utf-8") as f:
             lines = f.readlines()
-
+        
         sorted_edits = sorted(edits, key=lambda e: e.line_start, reverse=True)
+        
         for edit in sorted_edits:
             if edit.type == 'insert':
                 lines.insert(edit.line_start - 1, edit.content + '\n')
-
+                
             elif edit.type == 'replace':
                 if edit.line_end is None:
                     edit.line_end = edit.line_start
                 new_lines = [line + '\n' for line in edit.content.split('\n') if line or edit.content == '']
-                lines[edit.line_start - 1: edit.line_end] = new_lines
-
+                lines[edit.line_start - 1:edit.line_end] = new_lines
+                
             elif edit.type == 'delete':
                 if edit.line_end is None:
                     edit.line_end = edit.line_start
-                del lines[edit.line_start - 1: edit.line_end]
-     
+                del lines[edit.line_start - 1:edit.line_end]
+                
             elif edit.type == 'append':
                 lines.append(edit.content + '\n')
-
+        
         with file.open("w", encoding="utf-8") as f:
             f.writelines(lines)
-
-        return f"Successfully edited '{file_path}' with {len(edits)} operation(s)"
-
+        
+        return f"Successfully edited '{file}' with {len(edits)} operation(s)"
+        
     except OSError as e:
-        return f"Error editing '{file_path}': {e}"
+        return f"Error editing '{file}': {e}"
     except IndexError as e:
-        return f"Error: Invalid line number in edit operation for '{file_path}': {e}"
+        return f"Error: Invalid line number in edit operation for '{file}': {e}"
+
 
 def insert_at_line(file: Path, file_path: str, line_num: int, content: str) -> str:
     """
@@ -137,9 +133,10 @@ def insert_at_line(file: Path, file_path: str, line_num: int, content: str) -> s
         line_num: Line number to insert before (1-indexed)
         content: Content to insert
     """
-    return edit_file(file, file_path, [FileEdit(type='insert', line_start=line_num, content=content)])
-        
-def replace_lines(file: Path, file_path: str, start: int, end: int, content: str) -> str:
+    return edit_file(file, [FileEdit('insert', line_num, content=content)])
+
+
+def replace_lines(file: Path, start: int, end: int, content: str) -> str:
     """
     Convenience function to replace a range of lines.
     
@@ -150,9 +147,10 @@ def replace_lines(file: Path, file_path: str, start: int, end: int, content: str
         end: Ending line number (1-indexed, inclusive)
         content: New content to replace with
     """
-    return edit_file(file, file_path, [FileEdit('replace', start, end, content)])
+    return edit_file(file, [FileEdit('replace', start, end, content)])
 
-def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
+
+def list_directory(directory: Path, max_depth: int = 2) -> str:
     """
     Lists contents of a directory with file sizes and types.
     
@@ -163,13 +161,14 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
     """
     try:
         if not directory.exists():
-            return f"Error: Directory '{dir_path}' does not exist"
+            return f"Error: Directory '{str(directory)}' does not exist"
         
         if not directory.is_dir():
-            return f"Error: Directory '{dir_path}' is not a directory"
+            return f"Error: '{str(directory)}' is not a directory"
         
-        result = [f"Contents of '{dir_path}': "]
-        def list_recursive(path: Path, depth: int):
+        result = [f"Contents of '{str(directory)}':"]
+        
+        def list_recursive(path: Path, depth: int, prefix: str = ""):
             if depth > max_depth:
                 return
             
@@ -179,7 +178,7 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
                 for item in items:
                     if item.is_dir():
                         result.append(f"{indent}📁 {item.name}/")
-                        list_recursive(item, depth + 1)  
+                        list_recursive(item, depth + 1, prefix + "  ")
                     else:
                         size = item.stat().st_size
                         size_str = format_file_size(size)
@@ -189,12 +188,13 @@ def list_directory(directory: Path, dir_path: str, max_depth: int = 2 ) -> str:
         
         list_recursive(directory, 0)
         return "\n".join(result)
-    
+        
     except OSError as e:
-        return f"Error listing directory '{dir_path}': {e}"
+        return f"Error listing directory '{str(directory)}': {e}"
 
-def search_files(directory: Path, dir_path: str, pattern: str, 
-                 file_pattern: str = "*", max_results: int = 50) -> str:
+
+def search_files(directory: Path, pattern: str, 
+                file_pattern: str = "*", max_results: int = 50) -> str:
     """
     Searches for a text pattern across files in a directory.
     
@@ -207,35 +207,39 @@ def search_files(directory: Path, dir_path: str, pattern: str,
     """
     try:
         if not directory.exists() or not directory.is_dir():
-            return f"Error: '{dir_path}' is not a valid directory"
-
+            return f"Error: '{str(directory)}' is not a valid directory"
+        
         results = []
         regex = re.compile(pattern, re.IGNORECASE)
-
+        
         for file_path in directory.rglob(file_pattern):
             if not file_path.is_file():
                 continue
+            
             try:
-                with file_path.open("r", encoding="utf-8", errors="ignore") as f:
+                with file_path.open("r", encoding="utf-8", errors='ignore') as f:
                     for line_num, line in enumerate(f, 1):
                         if regex.search(line):
                             relative_path = file_path.relative_to(directory)
                             results.append(f"{relative_path}:{line_num}: {line.strip()}")
-
+                            
                             if len(results) >= max_results:
-                                results.append(f"\n.... Showing first {max_results} results")
+                                results.append(f"\n... Showing first {max_results} results")
                                 return "\n".join(results)
             except Exception:
+                # Skip files that can't be read
                 continue
+        
         if not results:
-            return f"No matches found for pattern '{pattern}' in {dir_path}"
+            return f"No matches found for pattern '{pattern}' in {str(directory)}"
         
         return "\n".join(results)
-    
+        
     except OSError as e:
-        return f"Error searching in '{dir_path}': {e}"
+        return f"Error searching in '{str(directory)}': {e}"
 
-def get_file_info(file: Path, file_path: str) -> Optional[str]:
+
+def get_file_info(file: Path, file_path: str) -> str:
     """
     Gets information about a file (size, type, line count).
     
@@ -249,31 +253,29 @@ def get_file_info(file: Path, file_path: str) -> Optional[str]:
         
         stat = file.stat()
         size = format_file_size(stat.st_size)
-
+        
         info = [f"File: {file_path}"]
         info.append(f"Size: {size}")
         info.append(f"Type: {file.suffix or 'no extension'}")
-
-        if file.suffix == "txt":
-            try:
-                with file.open("r", encoding="utf-8") as f:
-                    line_count = sum(1 for _ in f)
-                info.append(f"Lines {line_count}")
-            except Exception:
-                info.append("Lines: [binary file]")
-
-            return "\n".join(info)
+        
+        # Try to count lines if it's a text file
+        try:
+            with file.open("r", encoding="utf-8") as f:
+                line_count = sum(1 for _ in f)
+            info.append(f"Lines: {line_count}")
+        except Exception:
+            info.append("Lines: [binary file]")
+        
+        return "\n".join(info)
+        
     except OSError as e:
         return f"Error getting info for '{file_path}': {e}"
 
-def format_file_size(size_bytes: int) -> str:
+
+def format_file_size(size_bytes: float) -> str:
     """Formats file size in human-readable format."""
-    units = ['B', 'KB', 'MB', 'GB', 'TB']
-    size = float(size_bytes)
-    
-    for unit in units[:-1]:
-        if size < 1024.0:
-            return f"{size:.1f} {unit}"
-        size /= 1024.0
-    
-    return f"{size:.1f} {units[-1]}"
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} TB"
