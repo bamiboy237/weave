@@ -71,7 +71,8 @@ def stream_chat_completion(messages: Sequence[MessageContent], max_tokens=2048, 
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
-            stream=True
+            stream=True,
+            tools=
         )
         logger.info("Chat completion stream created")
         

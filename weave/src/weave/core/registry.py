@@ -38,4 +38,7 @@ class ToolRegistry:
 
     def execute(self, name: str, args: dict) -> Optional[Any]:
         """Execute a registered tool."""
-        pass
+        if name not in self.tools:
+            raise ValueError(f'Tool "{name}" not found in registry')
+        tool = self.tools[name]
+        return tool(**args)
