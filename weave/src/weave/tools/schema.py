@@ -20,6 +20,7 @@ class ToolParameter(BaseModel):
     required: bool
     enum: list[str] | None = None
 
+
     @field_validator('type')
     @classmethod
     def validate_type(cls, v: str) -> str:
@@ -38,29 +39,36 @@ class ToolSchema(BaseModel):
     parameters: list[ToolParameter]
 
     def to_json_schema(self) -> dict:
-        """Convert ToolSchema to JSON Schema format."""
+        """Convert ToolSchema to OpenAI/llama.cpp function format."""
         properties = {}
         required = []
+
         for param in self.parameters:
-            prop: dict[str, str | list[str]] = {
+            prop: dict = {
                 "type": param.type,
                 "description": param.description,
             }
-            if param.enum:
+            if param.enum is not None:
                 prop["enum"] = param.enum
             properties[param.name] = prop
             if param.required:
                 required.append(param.name)
-        schema = {
-            "name": self.name,
-            "description": self.description,
-            "parameters": properties,
+
+        parameters = {
+            "type": "object",
+            "properties": properties,
         }
         if required:
-            schema["required"] = required
-        return schema
+            parameters["required"] = required
 
-  
-        
-    
-    
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": parameters,
+            }
+        }
+
+
+

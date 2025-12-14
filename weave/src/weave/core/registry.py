@@ -34,6 +34,16 @@ class ToolRegistry:
     def get_all_schemas(self) -> list[ToolSchema]:
         """Get all registered tool schemas."""
         return list(self.schemas.values())
+
+    def get_tools(self) -> list[dict]:
+        """Get all registered tools as dicts with name and schema."""
+        return [
+            {
+                "type": "function",
+                "function": schema.to_json_schema(),
+            }
+            for schema in self.get_all_schemas()
+        ]
         
 
     def execute(self, name: str, args: dict) -> Optional[Any]:

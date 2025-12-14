@@ -180,7 +180,7 @@ class Chat(Widget):
             formatted_messages = format_messages_for_llm(self.chat_data.messages)
             logger.debug(f"Formatted messages: {formatted_messages}")
             
-            logger.info("Calling stream_chat_completion")
+            logger.info("Calling chat_completion")
             llm_response = stream_chat_completion(formatted_messages)
             logger.info("LLM response generator created, starting iteration")
             

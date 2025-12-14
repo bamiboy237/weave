@@ -16,7 +16,10 @@ import os
 from typing import Generator, Sequence
 from weave.core.logging import logger
 from weave.tui.models import MessageContent
-from llama_cpp.llama_types import ChatCompletionRequestMessage
+from llama_cpp.llama_types import ChatCompletionRequestMessage, ChatCompletionTool
+from weave.tools import registry as tool_registry
+
+
 
 
 # supppress stderr from llama.cpp
@@ -42,7 +45,9 @@ def _convert_messages(messages: Sequence[MessageContent]) -> list[ChatCompletion
 
 def stream_chat_completion(messages: Sequence[MessageContent], max_tokens=2048, temperature=0.3, top_p=0.9) -> Generator[str, None, None]:
     """
-    Stream a chat completion response token by token.
+    Get a chat completion response from the LLM.
+    
+    Note: When tools are enabled, returns non-streaming responses to properly handle tool calls.
     
     Args:
         messages: List of messages of type MessageContent with 'role' and 'content' keys:
@@ -55,7 +60,7 @@ def stream_chat_completion(messages: Sequence[MessageContent], max_tokens=2048, 
         top_p: Nucleus sampling parameter
         
     Yields:
-        str: Individual tokens as they are generated
+        str: Content tokens or tool call information
 
     Raises:
         ValueError: If messages are not properly formatted or temp/top_p are out of range
@@ -65,51 +70,65 @@ def stream_chat_completion(messages: Sequence[MessageContent], max_tokens=2048, 
     logger.debug(f"max_tokens={max_tokens}, temp={temperature}, top_p={top_p}")
     
     try:
-        logger.info("Creating chat completion stream...")
-        response_stream = llm.create_chat_completion(
+        logger.info("Creating chat completion...")
+        tools_dicts = tool_registry.get_tools()
+        tools: list[ChatCompletionTool] = [
+            ChatCompletionTool(
+                type=tool_dict["type"],
+                function=tool_dict["function"]
+            )
+            for tool_dict in tools_dicts
+        ]
+    
+
+        response = llm.create_chat_completion(
             messages=_convert_messages(messages),
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
-            stream=True,
-            tools=
+            stream=False,
+            tools=tools,
+            tool_choice="auto"
         )
-        logger.info("Chat completion stream created")
+        logger.info("Chat completion received")
+        logger.debug(f"Full response: {response}")
         
-        chunk_count = 0
-        for chunk in response_stream:
-            chunk_count += 1
-            logger.debug(f"Received chunk #{chunk_count}: {chunk}")
-            
-            try:
-                # Handle both dict and object types
-                if isinstance(chunk, dict):
-                    choices = chunk.get("choices", [])
-                else:
-                    choices = getattr(chunk, "choices", [])
-                
-                logger.debug(f"Chunk has {len(choices)} choices")
-                
-                if choices:
-                    # Handle both dict and object types for delta
-                    if isinstance(choices[0], dict):
-                        delta = choices[0].get("delta", {})
-                        content = delta.get("content", None) if isinstance(delta, dict) else getattr(delta, "content", None)
-                    else:
-                        delta = getattr(choices[0], "delta", None)
-                        content = getattr(delta, "content", None) if delta else None
-                    
-                    logger.debug(f"Delta: {delta}")
-                    
-                    if content:
-                        logger.debug(f"Yielding content: {repr(content)}")
-                        yield content
-            except (KeyError, IndexError, TypeError, AttributeError) as e:
-                logger.warning(f"Error processing chunk: {e}")
-                continue
+        # Extract the message from the response
+        if isinstance(response, dict):
+            choices = response.get("choices", []) # type: ignore
+        else:
+            choices = getattr(response, "choices", [])
         
-        logger.info(f"Stream complete. Yielded {chunk_count} chunks")
+        if not choices:
+            logger.warning("No choices in response")
+            return
+        
+        choice = choices[0]
+        message = choice.get("message") if isinstance(choice, dict) else getattr(choice, "message", None)
+        
+        if not message:
+            logger.warning("No message in choice")
+            return
+        
+        # Check for tool calls
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else getattr(message, "tool_calls", None)
+        
+        if tool_calls:
+            logger.info(f"Tool calls detected: {tool_calls}")
+            # Yield tool call information as a special format
+            import json
+            yield json.dumps({"tool_calls": tool_calls})
+        else:
+            # Regular text response
+            content = message.get("content") if isinstance(message, dict) else getattr(message, "content", None)
+            if content:
+                logger.info(f"Yielding content: {repr(content)}")
+                yield content
+            else:
+                logger.warning("No content or tool calls in message")
+                
     except Exception as e:
+        logger.error(f"Error during chat completion: {e}", exc_info=True)
         raise ValueError(f"Error during chat completion: {e}")
 
 
